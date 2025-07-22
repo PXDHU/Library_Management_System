@@ -7,6 +7,8 @@ import com.example.Library_Management.service.BookService;
 import com.example.Library_Management.service.DataIngestionService;
 import com.example.Library_Management.service.LoanService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -15,6 +17,7 @@ import java.util.List;
 @PreAuthorize("hasRole('ROLE_ADMIN')")
 @RestController
 @RequestMapping("/api/admin")
+@CrossOrigin(origins = "http://localhost:3000/")
 public class AdminController {
 
     @Autowired
@@ -48,9 +51,13 @@ public class AdminController {
     }
 
     @PostMapping("/data/ingest")
-    public String ingestData(@RequestParam String dataPath) throws Exception {
-        dataIngestionService.ingestData(dataPath);
-
-        return "Data ingestion completed";
+    public ResponseEntity<String> ingestData(@RequestParam String dataPath) {
+        try {
+            dataIngestionService.ingestData(dataPath);
+            return ResponseEntity.ok("Data ingestion completed.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to ingest data: " + e.getMessage());
+        }
     }
 }

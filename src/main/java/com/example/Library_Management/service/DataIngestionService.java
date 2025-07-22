@@ -4,14 +4,17 @@ import com.example.Library_Management.model.Book;
 import com.example.Library_Management.model.Rating;
 import com.example.Library_Management.repository.BookRepository;
 import com.example.Library_Management.repository.RatingRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class DataIngestionService {
 
@@ -21,32 +24,32 @@ public class DataIngestionService {
     @Autowired
     private RatingRepository ratingRepository;
 
-    private static final int RECORD_LIMIT = 1000; // For books and ratings
-    private static final int MAX_LINES = 10000; // Prevent infinite loops
+    private static final int RECORD_LIMIT = 1000;
+    private static final int MAX_LINES = 10000;
 
     public void ingestData(String filePath) throws Exception {
         Set<String> uniqueIsbns = new HashSet<>();
         int bookCount = 0;
         int ratingCount = 0;
+        int lineNumber = 0;
 
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine(); // Skip header
-            int lineNumber = 1;
             while ((line = br.readLine()) != null && lineNumber <= MAX_LINES) {
                 lineNumber++;
                 String[] data = line.split(";", -1);
-                if (data.length >= 8) {
-                    try {
-                        // Extract and clean fields
-                        String isbn = data[1].replaceAll("[\"']", "").trim();
-                        String ratingStr = data[2].replaceAll("[\"']", "").trim();
-                        String title = data[3].isEmpty() ? "Unknown" : data[3].trim();
-                        String author = data[4].isEmpty() ? "Other" : data[4].trim();
-                        String yearStr = data[5].replaceAll("[\"']", "").trim();
-                        String publisher = data[6].isEmpty() ? "Other" : data[6].trim();
 
-                        // -- Handle Book
+                if (data.length >= 6) {
+                    try {
+                        String isbn = clean(data[0]);
+                        String ratingStr = clean(data[1]);
+                        String title = data[2].isBlank() ? "Unknown" : data[2].trim();
+                        String author = data[3].isBlank() ? "Other" : data[3].trim();
+                        String yearStr = clean(data[4]);
+                        String publisher = data[5].isBlank() ? "Other" : data[5].trim();
+
+                        // Save Book
                         Book book = bookRepository.findByIsbn(isbn).orElse(null);
                         if (book == null && bookCount < RECORD_LIMIT) {
                             book = new Book();
@@ -61,7 +64,7 @@ public class DataIngestionService {
                             bookCount++;
                         }
 
-                        // -- Handle Rating (no need to associate with User-ID)
+                        // Save Rating
                         if (book != null && ratingCount < RECORD_LIMIT) {
                             Rating rating = new Rating();
                             rating.setBook(book);
@@ -70,20 +73,25 @@ public class DataIngestionService {
                             ratingCount++;
                         }
 
-                    } catch (NumberFormatException e) {
-                        System.err.println("Skipping invalid record at line " + lineNumber + ": " + line + " (Error: " + e.getMessage() + ")");
+                    } catch (Exception ex) {
+                        log.warn("Skipping invalid record at line {}: {} (Error: {})", lineNumber, line, ex.getMessage());
                     }
+                } else {
+                    log.warn("Malformed line at {}: {}", lineNumber, line);
                 }
             }
-
             if (lineNumber > MAX_LINES) {
-                System.err.println("Stopped processing CSV at line " + lineNumber + " due to maximum line limit (" + MAX_LINES + ")");
+                log.warn("Stopped processing at max line limit: {}", MAX_LINES);
             }
 
-            System.out.println("Ingested " + bookCount + " books.");
-            System.out.println("Ingested " + ratingCount + " ratings.");
+            log.info("Ingested {} books and {} ratings successfully.", bookCount, ratingCount);
         } catch (Exception e) {
+            log.error("Error processing file: {}", filePath, e);
             throw new Exception("Error processing file: " + filePath, e);
         }
+    }
+
+    private String clean(String input) {
+        return input == null ? "" : input.replaceAll("[\"']", "").trim();
     }
 }

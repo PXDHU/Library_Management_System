@@ -62,7 +62,7 @@ def get_popular_books():
         average_rating = ratings.groupby('Book-ID')['Book-Rating'].mean().reset_index()
         rating_count = ratings.groupby('Book-ID')['Book-Rating'].count().reset_index().rename(columns={'Book-Rating': 'ratingCount'})
         average_rating = average_rating.merge(rating_count, on='Book-ID')
-        top_books = average_rating.sort_values('ratingCount', ascending=False).head(5)
+        top_books = average_rating.sort_values('ratingCount', ascending=False).head(12)
 
         print("Top Book-IDs:", top_books['Book-ID'].tolist())
 
@@ -88,7 +88,7 @@ def get_popular_books():
 def get_content_based_recommendations(book_id: str):
     try:
         # Fetch data
-        books, _, ratings = fetch_data()
+        books, ratings = fetch_data()
 
         # Clean ISBNs
         books['ISBN'] = books['ISBN'].astype(str).str.strip()
@@ -172,7 +172,7 @@ def get_content_based_recommendations(book_id: str):
         for i in similar_indices:
             if popular_books['Book-Title'].iloc[i] != input_title and \
                popular_books['Book-Title'].iloc[i] not in similar_items and \
-               len(similar_items) < 5:
+               len(similar_items) < 8:
                 similar_items.append(popular_books['Book-Title'].iloc[i])
 
         # Debug: Log recommendations

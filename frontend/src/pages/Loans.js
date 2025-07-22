@@ -33,20 +33,20 @@ const Loans = () => {
   };
 
   return (
-    <Box p={3}>
-      <Typography variant="h4">My Loans</Typography>
+    <Box p={{ xs: 1, sm: 3 }} display="flex" flexDirection="column" alignItems="center" minHeight="80vh">
+      <Typography variant="h4" fontWeight={600} color="primary.main" mb={3} letterSpacing={0} textAlign="center">My Loans</Typography>
       {loading ? <CircularProgress /> : (
-        <Grid container spacing={2}>
+        <Grid container spacing={3} justifyContent="center">
           {loans.map(loan => (
-            <Grid item xs={12} sm={6} md={4} key={loan.id}>
-              <Card>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={loan.id} display="flex" justifyContent="center">
+              <Card sx={{ borderRadius: 4, background: '#fff', boxShadow: '0 1.5px 8px 0 rgba(60,72,88,0.06)', border: '1px solid #e5e7eb', width: 270, m: 1, p: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 220 }}>
                 <CardContent>
-                  <Typography variant="h6">{loan.book?.title}</Typography>
-                  <Typography variant="body2">Due: {loan.dueDate?.slice(0, 10)}</Typography>
-                  <Typography variant="body2">Returned: {loan.returnDate ? loan.returnDate.slice(0, 10) : 'No'}</Typography>
+                  <Typography variant="h6" fontWeight={600} color="primary.main" gutterBottom>{loan.book?.title}</Typography>
+                  <Typography variant="body2" color="text.secondary" fontWeight={400}>Due: {loan.dueDate?.slice(0, 10)}</Typography>
+                  <Typography variant="body2" color="text.secondary" fontWeight={400}>Returned: {loan.returnDate ? loan.returnDate.slice(0, 10) : 'No'}</Typography>
                 </CardContent>
                 <CardActions>
-                  {!loan.returnDate && <Button size="small" onClick={() => handleReturn(loan.id)}>Return</Button>}
+                  {!loan.returnDate && <Button size="small" onClick={() => handleReturn(loan.id)} sx={{ fontWeight: 500, borderRadius: 3, color: 'primary.main', border: '1px solid #3a5a80', background: 'none', '&:hover': { background: '#f7f7fa', color: 'primary.dark' } }}>Return</Button>}
                 </CardActions>
               </Card>
             </Grid>

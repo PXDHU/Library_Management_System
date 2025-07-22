@@ -4,10 +4,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # File paths
-books_path = "C:/Padmavasan/csv/Books.csv"
-users_path = "C:/Padmavasan/csv/Users.csv"
-ratings_path = "C:/Padmavasan/csv/Book-Ratings.csv"
-output_path = "C:/Padmavasan/csv/merged_data.csv"
+books_path = "dataset/Books.csv"
+users_path = "dataset/Users.csv"
+ratings_path = "dataset/Book-Ratings.csv"
+output_path = "dataset/merged_data.csv"
 
 # Read CSV files
 books = pd.read_csv(books_path, delimiter=';', encoding='ISO-8859-1', on_bad_lines='skip')
@@ -48,7 +48,7 @@ merged_df = pd.merge(ratings, books, on='ISBN', how='inner')
 merged_df = pd.merge(merged_df, users, on='User-ID', how='inner')
 
 # Select relevant columns
-merged_df = merged_df[['ISBN', 'Book-Rating', 'Book-Title', 'Book-Author', 'Year-Of-Publication', 'Publisher', 'Location']]
+merged_df = merged_df[['ISBN', 'Book-Rating', 'Book-Title', 'Book-Author', 'Year-Of-Publication', 'Publisher']]
 
 # Remove duplicates
 merged_df = merged_df.drop_duplicates()
