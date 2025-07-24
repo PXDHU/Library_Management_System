@@ -28,11 +28,11 @@ public class UserService {
     }
 
     public User register(RegisterRequest request) {
-        Optional<User> existing = userRepository.findAll().stream()
-            .filter(u -> u.getUsername().equals(request.getUsername()) || u.getEmail().equals(request.getEmail()))
-            .findFirst();
-        if (existing.isPresent()) {
-            throw new RuntimeException("Username or email already exists");
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
         }
         User user = new User();
         user.setUsername(request.getUsername());
@@ -73,5 +73,10 @@ public class UserService {
 
     public List<User> listUsers() {
         return userRepository.findAll();
+    }
+
+    public User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }

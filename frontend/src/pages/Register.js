@@ -19,7 +19,7 @@ const Register = () => {
       await register(form);
       navigate('/login');
     } catch (err) {
-      setError('Registration failed');
+      setError(err.message || 'Registration failed');
     }
   };
 

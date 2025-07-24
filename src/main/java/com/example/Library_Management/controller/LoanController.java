@@ -23,32 +23,41 @@ public class LoanController {
 
     @PostMapping("/borrow/{bookId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Loan> borrowBook(@PathVariable Long bookId, @RequestParam(defaultValue = "14") int durationDays, Principal principal) {
-        Long userId = userService.listUsers().stream()
-            .filter(u -> u.getUsername().equals(principal.getName()))
-            .findFirst().orElseThrow(() -> new RuntimeException("User not found")).getId();
-        return ResponseEntity.ok(loanService.lendBook(bookId, userId, durationDays));
+    public ResponseEntity<Loan> borrowBook(@PathVariable Long bookId, @RequestParam(defaultValue = "2") int durationDays, Principal principal) {
+        if (durationDays <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            Long userId = userService.getUserByUsername(principal.getName()).getId();
+            return ResponseEntity.ok(loanService.lendBook(bookId, userId, durationDays));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
     @PostMapping("/return/{loanId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Loan> returnBook(@PathVariable Long loanId, Principal principal) {
-        Long userId = userService.listUsers().stream()
-            .filter(u -> u.getUsername().equals(principal.getName()))
-            .findFirst().orElseThrow(() -> new RuntimeException("User not found")).getId();
-        Loan loan = loanService.getLoanById(loanId);
-        if (!loan.getUser().getId().equals(userId)) {
-            return ResponseEntity.status(403).build();
+        try {
+            Long userId = userService.getUserByUsername(principal.getName()).getId();
+            Loan loan = loanService.getLoanById(loanId);
+            if (!loan.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).build();
+            }
+            return ResponseEntity.ok(loanService.returnBook(loanId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
         }
-        return ResponseEntity.ok(loanService.returnBook(loanId));
     }
 
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Loan>> getMyLoans(Principal principal) {
-        Long userId = userService.listUsers().stream()
-            .filter(u -> u.getUsername().equals(principal.getName()))
-            .findFirst().orElseThrow(() -> new RuntimeException("User not found")).getId();
-        return ResponseEntity.ok(loanService.getLoansByUser(userId));
+        try {
+            Long userId = userService.getUserByUsername(principal.getName()).getId();
+            return ResponseEntity.ok(loanService.getLoansByUser(userId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 } 

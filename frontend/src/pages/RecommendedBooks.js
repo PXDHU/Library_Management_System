@@ -8,25 +8,35 @@ import BarcodeIcon from '@mui/icons-material/QrCode2';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 
 const RecommendedBooks = () => {
-  const [isbn, setIsbn] = useState('');
+  const [title, setTitle] = useState('');
   const [recommendations, setRecommendations] = useState([]);
   const [snackbar, setSnackbar] = useState('');
   const { user } = useContext(AuthContext);
 
   const fetchRecommendations = async () => {
     try {
+      // Search for the book by title
+      const bookRes = await axios.get(`/api/books?title=${encodeURIComponent(title)}`);
+      if (!bookRes.data || bookRes.data.length === 0) {
+        setSnackbar('No book found with that title.');
+        setRecommendations([]);
+        return;
+      }
+      const book = bookRes.data[0]; // Use the first match
+      const isbn = book.isbn;
+      // Fetch recommendations using the found ISBN
       const res = await axios.get(`/api/books/${isbn}/recommendations/content-based`);
       const titles = res.data;
       // Fetch full book details for each title
       const bookDetails = await Promise.all(
-        titles.map(async (title) => {
-          const resp = await axios.get(`/api/books?title=${encodeURIComponent(title)}`);
+        titles.map(async (recTitle) => {
+          const resp = await axios.get(`/api/books?title=${encodeURIComponent(recTitle)}`);
           return resp.data && resp.data.length > 0 ? resp.data[0] : null;
         })
       );
       setRecommendations(bookDetails.filter(Boolean));
     } catch (err) {
-      setSnackbar('Could not fetch recommendations. Check ISBN.');
+      setSnackbar('Could not fetch recommendations.');
       setRecommendations([]);
     }
   };
@@ -40,8 +50,13 @@ const RecommendedBooks = () => {
       setSnackbar('No copies available to borrow.');
       return;
     }
+    const days = prompt('Enter number of days to borrow the book:', '2');
+    if (!days || isNaN(days) || days <= 0) {
+      setSnackbar('Please enter a valid number of days.');
+      return;
+    }
     try {
-      await axios.post(`/api/loans/borrow/${bookId}`);
+      await axios.post(`/api/loans/borrow/${bookId}?durationDays=${days}`);
       setSnackbar('Book borrowed!');
     } catch (err) {
       setSnackbar('Failed to borrow book.');
@@ -55,9 +70,9 @@ const RecommendedBooks = () => {
       </Typography>
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} alignItems="center" mb={3}>
         <TextField
-          label="Enter ISBN"
-          value={isbn}
-          onChange={(e) => setIsbn(e.target.value)}
+          label="Enter Book Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
           sx={{ my: 1, maxWidth: 320, background: '#fff', borderRadius: 2 }}
         />
         <Button variant="contained" onClick={fetchRecommendations} sx={{ ml: { sm: 2 }, borderRadius: 2, fontWeight: 500, minWidth: 160 }}>

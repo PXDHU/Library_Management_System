@@ -22,6 +22,9 @@ public class BookController {
 
     @GetMapping
     public List<Book> getAllBooks(@RequestParam(required = false) String title) {
+        if (title != null && title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title parameter cannot be empty");
+        }
         return title != null ? bookService.searchBooks(title) : bookService.getAllBooks();
     }
 
@@ -33,5 +36,10 @@ public class BookController {
     @GetMapping("/{isbn}/recommendations/content-based")
     public List<String> getContentBasedRecommendations(@PathVariable String isbn) {
         return recommendationService.getContentBasedRecommendations(isbn);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteBook(@PathVariable Long id) {
+        bookService.deleteBook(id);
     }
 }

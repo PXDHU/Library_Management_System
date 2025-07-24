@@ -50,4 +50,13 @@ public class RatingService {
         List<Rating> ratings = getRatingsForBook(bookId);
         return ratings.isEmpty() ? null : ratings.stream().mapToInt(Rating::getRating).average().orElse(0.0);
     }
+
+    public java.util.Map<Long, Double> getAverageRatingsForAllBooks() {
+        java.util.Map<Long, Double> averages = new java.util.HashMap<>();
+        bookRepository.findAll().forEach(book -> {
+            Double avg = getAverageRatingForBook(book.getId());
+            averages.put(book.getId(), avg != null ? avg : 0.0);
+        });
+        return averages;
+    }
 }

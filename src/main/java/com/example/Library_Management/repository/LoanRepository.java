@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
     List<Loan> findByReturnDateIsNull(); // Active loans
+    List<Loan> findByDueDateBeforeAndReturnDateIsNull(java.time.LocalDateTime now);
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from '../api/axios';
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Grid,
   Card,
   CardContent,
   Chip,
@@ -20,14 +19,17 @@ import {
   TextField,
   InputAdornment,
   Fade,
-  useTheme
+  useTheme,
+  Modal,
+  Button,
+  IconButton
 } from '@mui/material';
 import {
   Person as PersonIcon,
   Book as BookIcon,
   Assignment as AssignmentIcon,
   Search as SearchIcon,
-  TrendingUp as TrendingUpIcon
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 const Admin = () => {
@@ -41,7 +43,13 @@ const Admin = () => {
   const [loanPage, setLoanPage] = useState(0);
   const [userSearch, setUserSearch] = useState('');
   const [bookSearch, setBookSearch] = useState('');
+  const [loanSearch, setLoanSearch] = useState('');
   const rowsPerPage = 5;
+  const [editBook, setEditBook] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [addBookModalOpen, setAddBookModalOpen] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     fetchAll();
@@ -64,15 +72,97 @@ const Admin = () => {
     setLoading(false);
   };
 
-  const filteredUsers = users.filter(user =>
-    user.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    user.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const handleDeleteBook = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this book?')) return;
+    try {
+      await axios.delete(`/api/books/${id}`);
+      fetchAll();
+    } catch (err) {
+      alert('Failed to delete book. User has not returned the book yet.');
+    }
+  };
 
-  const filteredBooks = books.filter(book =>
-    book.title?.toLowerCase().includes(bookSearch.toLowerCase()) ||
-    book.author?.toLowerCase().includes(bookSearch.toLowerCase())
-  );
+  const handleEditBook = (book) => {
+    setEditBook(book);
+    setEditModalOpen(true);
+  };
+
+  const handleEditModalClose = () => {
+    setEditModalOpen(false);
+    setEditBook(null);
+  };
+
+  function isValidISBN(isbn) {
+    return /^(\d{10}|\d{13})$/.test(isbn);
+  }
+  function isValidYear(year) {
+    const y = Number(year);
+    const currentYear = new Date().getFullYear();
+    return /^\d{4}$/.test(year) && y >= 1000 && y <= currentYear;
+  }
+
+  const handleUpdateBook = async (e) => {
+    e.preventDefault();
+    setEditError("");
+    const data = new FormData(e.currentTarget);
+    const isbn = data.get('isbn');
+    const year = data.get('year');
+    if (!isValidISBN(isbn)) {
+      setEditError("ISBN must be 10 or 13 digits.");
+      return;
+    }
+    if (!isValidYear(year)) {
+      setEditError("Year must be a 4-digit number between 1000 and the current year.");
+      return;
+    }
+    const updatedBook = {
+      title: data.get('title'),
+      author: data.get('author'),
+      isbn: data.get('isbn'),
+      year: Number(data.get('year')),
+      publisher: data.get('publisher'),
+      totalCopies: Number(data.get('totalCopies')),
+    };
+    try {
+      await axios.put(`/api/admin/books/${editBook.id}`, updatedBook);
+      fetchAll();
+      handleEditModalClose();
+    } catch (err) {
+      alert('Failed to update book');
+    }
+  };
+
+  const handleAddBook = async (e) => {
+    e.preventDefault();
+    setAddError("");
+    const data = new FormData(e.currentTarget);
+    const isbn = data.get('isbn');
+    const year = data.get('year');
+    if (!isValidISBN(isbn)) {
+      setAddError("ISBN must be 10 or 13 digits.");
+      return;
+    }
+    if (!isValidYear(year)) {
+      setAddError("Year must be a 4-digit number between 1000 and the current year.");
+      return;
+    }
+    const book = {
+      title: data.get('title'),
+      author: data.get('author'),
+      isbn: data.get('isbn'),
+      year: Number(data.get('year')),
+      publisher: data.get('publisher'),
+      totalCopies: Number(data.get('totalCopies')),
+      availableCopies: Number(data.get('totalCopies')),
+    };
+    try {
+      await axios.post('/api/admin/books', book);
+      fetchAll();
+      setAddBookModalOpen(false);
+    } catch (err) {
+      alert('Failed to add book');
+    }
+  };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
     <Card
@@ -115,7 +205,7 @@ const Admin = () => {
     </Card>
   );
 
-  const EnhancedTable = ({ title, data, columns, searchValue, onSearchChange, page, onPageChange, icon: Icon }) => (
+  const EnhancedTable = ({ title, data, columns, searchValue, onSearchChange, page, onPageChange, icon: Icon, onAddBook }) => (
     <Paper
       sx={{
         borderRadius: 4,
@@ -123,7 +213,8 @@ const Admin = () => {
         boxShadow: '0 1.5px 8px 0 rgba(60,72,88,0.06)',
         border: '1px solid #e5e7eb',
         background: '#fff',
-        mb: 2
+        mb: 2,
+        width: '100%'
       }}
     >
       <Box sx={{
@@ -139,32 +230,39 @@ const Admin = () => {
               {title}
             </Typography>
           </Box>
-          <TextField
-            size="small"
-            placeholder={`Search ${title.toLowerCase()}...`}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            sx={{
-              background: '#fff',
-              borderRadius: 2,
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: '#fff',
+          <Box display="flex" alignItems="center" gap={2}>
+            {title === "Books" && onAddBook && (
+              <Button variant="contained" color="primary" onClick={onAddBook}>
+                Add Book
+              </Button>
+            )}
+            <TextField
+              size="small"
+              placeholder={`Search ${title.toLowerCase()}...`}
+              value={searchValue}
+              onChange={onSearchChange}
+              sx={{
+                background: '#fff',
                 borderRadius: 2,
-                '& fieldset': { border: '1px solid #e5e7eb' },
-                '&:hover fieldset': { border: '1px solid #3a5a80' },
-                '&.Mui-focused fieldset': { border: '2px solid #3a5a80' }
-              },
-              '& .MuiInputBase-input': { color: 'primary.main' },
-              '& .MuiInputBase-input::placeholder': { color: '#bfc0c0' }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#bfc0c0' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#fff',
+                  borderRadius: 2,
+                  '& fieldset': { border: '1px solid #e5e7eb' },
+                  '&:hover fieldset': { border: '1px solid #3a5a80' },
+                  '&.Mui-focused fieldset': { border: '2px solid #3a5a80' }
+                },
+                '& .MuiInputBase-input': { color: 'primary.main' },
+                '& .MuiInputBase-input::placeholder': { color: '#bfc0c0' }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#bfc0c0' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
         </Box>
       </Box>
       <TableContainer>
@@ -199,6 +297,43 @@ const Admin = () => {
       />
     </Paper>
   );
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(user =>
+      user.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.email?.toLowerCase().includes(userSearch.toLowerCase())
+    );
+  }, [users, userSearch]);
+
+  const filteredBooks = useMemo(() => {
+    return books.filter(book =>
+      book.title?.toLowerCase().includes(bookSearch.toLowerCase()) ||
+      book.author?.toLowerCase().includes(bookSearch.toLowerCase())
+    );
+  }, [books, bookSearch]);
+
+  const filteredLoans = useMemo(() => {
+    return loans.filter(loan =>
+      loan.book?.title?.toLowerCase().includes(loanSearch.toLowerCase()) ||
+      loan.user?.username?.toLowerCase().includes(loanSearch.toLowerCase()) ||
+      loan.id?.toString().includes(loanSearch)
+    );
+  }, [loans, loanSearch]);
+
+  const handleUserSearchChange = (e) => {
+    setUserSearch(e.target.value);
+    setUserPage(0);
+  };
+
+  const handleBookSearchChange = (e) => {
+    setBookSearch(e.target.value);
+    setBookPage(0);
+  };
+
+  const handleLoanSearchChange = (e) => {
+    setLoanSearch(e.target.value);
+    setLoanPage(0);
+  };
 
   if (loading) {
     return (
@@ -250,6 +385,31 @@ const Admin = () => {
           size="small"
         />
       )
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      render: (row) => (
+        <>
+          <IconButton onClick={() => handleEditBook(row)} color="primary" size="small" style={{ marginRight: 8 }}>
+            <EditIcon />
+          </IconButton>
+          <button
+            style={{
+              background: '#e53935',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '6px 14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            onClick={() => handleDeleteBook(row.id)}
+          >
+            Delete
+          </button>
+        </>
+      )
     }
   ];
 
@@ -288,7 +448,6 @@ const Admin = () => {
           </Typography>
         </Box>
 
-        {/* StatCards Row - perfectly centered horizontally */}
         <Box
           sx={{
             display: 'flex',
@@ -324,96 +483,105 @@ const Admin = () => {
             color={'#ed6c02'}
             subtitle="Currently borrowed"
           />
-          <StatCard
-            title="Total Loans"
-            value={loans.length}
-            icon={TrendingUpIcon}
-            color={'#0288d1'}
-            subtitle="All time"
-          />
         </Box>
 
-        {/* EnhancedTables Vertical Stack - perfectly centered vertically */}
         <Box display="flex" flexDirection="column" alignItems="center" width="100%" maxWidth="1100px" mx="auto">
           <EnhancedTable
             title="Users"
             data={filteredUsers}
             columns={userColumns}
             searchValue={userSearch}
-            onSearchChange={setUserSearch}
+            onSearchChange={handleUserSearchChange}
             page={userPage}
             onPageChange={setUserPage}
             icon={PersonIcon}
           />
           <Box mt={4} width="100%">
-            {/* Add Book Form */}
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 4, boxShadow: '0 1.5px 8px 0 rgba(60,72,88,0.06)', border: '1px solid #e5e7eb', background: '#fff' }}>
-              <Typography variant="h6" fontWeight={600} color="primary.main" mb={2}>Add New Book</Typography>
-              <Box component="form" display="flex" flexWrap="wrap" gap={2} onSubmit={async (e) => {
-                e.preventDefault();
-                const data = new FormData(e.currentTarget);
-                const book = {
-                  title: data.get('title'),
-                  author: data.get('author'),
-                  isbn: data.get('isbn'),
-                  year: Number(data.get('year')),
-                  publisher: data.get('publisher'),
-                  totalCopies: Number(data.get('totalCopies')),
-                  availableCopies: Number(data.get('totalCopies')),
-                };
-                try {
-                  await axios.post('/api/admin/books', book);
-                  fetchAll();
-                  e.target.reset();
-                } catch (err) {
-                  alert('Failed to add book');
-                }
-              }}>
-                <TextField name="title" label="Title" required sx={{ flex: 1, minWidth: 180 }} />
-                <TextField name="author" label="Author" required sx={{ flex: 1, minWidth: 180 }} />
-                <TextField name="isbn" label="ISBN" required sx={{ flex: 1, minWidth: 140 }} />
-                <TextField name="year" label="Year" type="number" required sx={{ flex: 1, minWidth: 100 }} />
-                <TextField name="publisher" label="Publisher" required sx={{ flex: 1, minWidth: 180 }} />
-                <TextField name="totalCopies" label="Total Copies" type="number" required sx={{ flex: 1, minWidth: 120 }} />
-                <Box display="flex" alignItems="center" mt={{ xs: 2, sm: 0 }}>
-                  <button type="submit" style={{
-                    background: theme.palette.primary.main,
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 6,
-                    padding: '10px 24px',
-                    fontWeight: 600,
-                    fontSize: 16,
-                    cursor: 'pointer',
-                    boxShadow: 'none',
-                  }}>Add Book</button>
-                </Box>
-              </Box>
-            </Paper>
             <EnhancedTable
               title="Books"
               data={filteredBooks}
               columns={bookColumns}
               searchValue={bookSearch}
-              onSearchChange={setBookSearch}
+              onSearchChange={handleBookSearchChange}
               page={bookPage}
               onPageChange={setBookPage}
               icon={BookIcon}
+              onAddBook={() => setAddBookModalOpen(true)}
             />
           </Box>
           <Box mt={4} width="100%">
             <EnhancedTable
               title="Loans"
-              data={loans}
+              data={filteredLoans}
               columns={loanColumns}
-              searchValue=""
-              onSearchChange={() => {}}
+              searchValue={loanSearch}
+              onSearchChange={handleLoanSearchChange}
               page={loanPage}
               onPageChange={setLoanPage}
               icon={AssignmentIcon}
             />
           </Box>
         </Box>
+        <Modal open={editModalOpen} onClose={handleEditModalClose}>
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 400,
+            bgcolor: 'background.paper',
+            border: '2px solid #e5e7eb',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 4,
+          }}>
+            <Typography variant="h6" mb={2}>Edit Book</Typography>
+            {editBook && (
+              <Box component="form" onSubmit={handleUpdateBook} display="flex" flexDirection="column" gap={2}>
+                {editError && <Typography color="error" sx={{ width: '100%' }}>{editError}</Typography>}
+                <TextField name="title" label="Title" defaultValue={editBook.title} required />
+                <TextField name="author" label="Author" defaultValue={editBook.author} required />
+                <TextField name="isbn" label="ISBN" defaultValue={editBook.isbn} required />
+                <TextField name="year" label="Year" type="number" defaultValue={editBook.year} required />
+                <TextField name="publisher" label="Publisher" defaultValue={editBook.publisher} required />
+                <TextField name="totalCopies" label="Total Copies" type="number" defaultValue={editBook.totalCopies} required />
+                <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
+                  <Button onClick={handleEditModalClose} color="secondary" variant="outlined">Cancel</Button>
+                  <Button type="submit" color="primary" variant="contained">Save</Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Modal>
+        <Modal open={addBookModalOpen} onClose={() => setAddBookModalOpen(false)}>
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 400,
+            bgcolor: 'background.paper',
+            border: '2px solid #e5e7eb',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 4,
+          }}>
+            <Typography variant="h6" mb={2}>Add New Book</Typography>
+            <Box component="form" onSubmit={handleAddBook} display="flex" flexDirection="column" gap={2}>
+              {addError && <Typography color="error" sx={{ width: '100%' }}>{addError}</Typography>}
+              <TextField name="title" label="Title" required />
+              <TextField name="author" label="Author" required />
+              <TextField name="isbn" label="ISBN" required />
+              <TextField name="year" label="Year" type="number" required />
+              <TextField name="publisher" label="Publisher" required />
+              <TextField name="totalCopies" label="Total Copies" type="number" required />
+              <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
+                <Button onClick={() => setAddBookModalOpen(false)} color="secondary" variant="outlined">Cancel</Button>
+                <Button type="submit" color="primary" variant="contained">Add</Button>
+              </Box>
+            </Box>
+          </Box>
+        </Modal>
       </Box>
     </Fade>
   );

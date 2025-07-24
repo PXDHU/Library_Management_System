@@ -24,7 +24,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (data) => {
-    await axios.post('/api/users/register', data);
+    try {
+      await axios.post('/api/users/register', data);
+    } catch (err) {
+      if (err.response && err.response.data) {
+        throw new Error(err.response.data);
+      } else {
+        throw new Error('Registration failed. Please try again.');
+      }
+    }
   };
 
   const logout = () => {

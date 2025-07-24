@@ -19,6 +19,10 @@ import {
   CardMedia,
   Rating,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -29,6 +33,8 @@ import BarcodeIcon from '@mui/icons-material/QrCode2';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import Pagination from '@mui/material/Pagination';
 import { useTheme } from '@mui/material/styles';
+
+export let refetchAverageRatings = () => {};
 
 const BookCatalog = () => {
   const [books, setBooks] = useState([]);
@@ -41,6 +47,11 @@ const BookCatalog = () => {
   const theme = useTheme();
   const [page, setPage] = useState(1);
   const booksPerPage = 8; // 4 columns x 2 rows on desktop
+  const [borrowDialogOpen, setBorrowDialogOpen] = useState(false);
+  const [borrowDays, setBorrowDays] = useState('2');
+  const [borrowBookId, setBorrowBookId] = useState(null);
+  const [borrowAvailableCopies, setBorrowAvailableCopies] = useState(null);
+  const [averageRatings, setAverageRatings] = useState({});
 
   // Calculate paginated books
   const pageCount = Math.ceil(filteredBooks.length / booksPerPage);
@@ -59,8 +70,17 @@ const BookCatalog = () => {
         setLoading(false);
       }
     };
-
+    const fetchAverageRatings = async () => {
+      try {
+        const response = await axios.get('/api/ratings/averages');
+        setAverageRatings(response.data);
+      } catch (error) {
+        console.error('Failed to fetch average ratings', error);
+      }
+    };
+    refetchAverageRatings = fetchAverageRatings;
     fetchBooks();
+    fetchAverageRatings();
   }, []);
 
   const handleSearch = useCallback((query) => {
@@ -91,24 +111,44 @@ const BookCatalog = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleBorrow = async (bookId, availableCopies) => {
+  const openBorrowDialog = (bookId, availableCopies) => {
+    setBorrowBookId(bookId);
+    setBorrowAvailableCopies(availableCopies);
+    setBorrowDays('2');
+    setBorrowDialogOpen(true);
+  };
+  const closeBorrowDialog = () => {
+    setBorrowDialogOpen(false);
+    setBorrowBookId(null);
+    setBorrowAvailableCopies(null);
+  };
+  const handleConfirmBorrow = async () => {
     if (!user) {
       setSnackbar({ open: true, message: 'Please log in to borrow books.', severity: 'warning' });
+      closeBorrowDialog();
       return;
     }
-    if (!availableCopies || availableCopies < 1) {
+    if (!borrowAvailableCopies || borrowAvailableCopies < 1) {
       setSnackbar({ open: true, message: 'No copies available to borrow.', severity: 'warning' });
+      closeBorrowDialog();
+      return;
+    }
+    if (!borrowDays || isNaN(borrowDays) || borrowDays <= 0) {
+      setSnackbar({ open: true, message: 'Please enter a valid number of days.', severity: 'warning' });
       return;
     }
     try {
-      await axios.post(`/api/loans/borrow/${bookId}`);
+      await axios.post(`/api/loans/borrow/${borrowBookId}?durationDays=${borrowDays}`);
       setSnackbar({ open: true, message: 'Book borrowed!', severity: 'success' });
+      closeBorrowDialog();
     } catch (err) {
       setSnackbar({ open: true, message: 'Failed to borrow book.', severity: 'error' });
+      closeBorrowDialog();
     }
   };
 
   const BookCard = ({ book }) => {
+    const avgRating = averageRatings[book.id] || 0;
     return (
       <Card
         sx={{
@@ -175,17 +215,16 @@ const BookCatalog = () => {
             sx={{ mt: 1, fontWeight: 500, background: '#f7f7fa', color: 'primary.main' }}
           />
           <Rating
-            value={typeof book.rating === 'number' ? book.rating : 0}
+            value={avgRating}
+            precision={0.1}
             readOnly
             size="small"
-            sx={{ mt: 1,
-              color: 'primary.main',
-            }}
+            sx={{ mt: 1, color: 'primary.main' }}
           />
         </CardContent>
         <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
           <Button fullWidth variant="contained" color="primary"
-            onClick={() => handleBorrow(book.id, book.availableCopies)}
+            onClick={() => openBorrowDialog(book.id, book.availableCopies)}
             disabled={!user || !book.availableCopies || book.availableCopies < 1}
           >
             Borrow Book
@@ -276,6 +315,33 @@ const BookCatalog = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Dialog open={borrowDialogOpen} onClose={closeBorrowDialog} PaperProps={{ sx: { borderRadius: 3, p: 2, minWidth: 350 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 24, pb: 0 }}>Borrow Book</DialogTitle>
+        <Typography variant="subtitle1" color="text.secondary" sx={{ px: 3, pt: 1, pb: 0.5 }}>
+          Please enter the number of days you wish to borrow this book for.
+        </Typography>
+        <DialogContent sx={{ pt: 1, pb: 0 }}>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Number of days"
+            type="number"
+            fullWidth
+            size="large"
+            value={borrowDays}
+            onChange={e => setBorrowDays(e.target.value)}
+            inputProps={{ min: 1, style: { fontSize: 18, padding: '14px 10px' } }}
+            helperText="Enter a value between 1 and 30 days."
+            FormHelperTextProps={{ sx: { fontSize: 14 } }}
+            sx={{ mt: 2, mb: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2, pt: 1 }}>
+          <Button onClick={closeBorrowDialog} variant="outlined" size="large" sx={{ minWidth: 110, mr: 2, borderRadius: 2 }}>Cancel</Button>
+          <Button onClick={handleConfirmBorrow} variant="contained" size="large" sx={{ minWidth: 110, borderRadius: 2 }}>Borrow</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

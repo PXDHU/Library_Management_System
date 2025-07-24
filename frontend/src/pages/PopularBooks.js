@@ -44,8 +44,13 @@ const PopularBooks = () => {
       setSnackbar('No copies available to borrow.');
       return;
     }
+    const days = prompt('Enter number of days to borrow the book:', '2');
+    if (!days || isNaN(days) || days <= 0) {
+      setSnackbar('Please enter a valid number of days.');
+      return;
+    }
     try {
-      await axios.post(`/api/loans/borrow/${bookId}`);
+      await axios.post(`/api/loans/borrow/${bookId}?durationDays=${days}`);
       setSnackbar('Book borrowed!');
     } catch (err) {
       setSnackbar('Failed to borrow book.');
@@ -124,12 +129,6 @@ const PopularBooks = () => {
                     color={book.availableCopies > 0 ? 'success' : 'default'}
                     size="small"
                     sx={{ mt: 1, fontWeight: 500, background: '#f7f7fa', color: 'primary.main' }}
-                  />
-                  <Rating
-                    value={typeof book.rating === 'number' ? book.rating : 0}
-                    readOnly
-                    size="small"
-                    sx={{ mt: 1, color: 'primary.main' }}
                   />
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>

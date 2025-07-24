@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
-import { Box, Typography, Grid, Card, CardContent, CardActions, Button, CircularProgress, Snackbar } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, CardActions, Button, CircularProgress, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, Rating as MuiRating } from '@mui/material';
+import { refetchAverageRatings } from './Books';
 
 const Loans = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState('');
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [ratingLoan, setRatingLoan] = useState(null);
+  const [ratingValue, setRatingValue] = useState(3);
 
   useEffect(() => {
     fetchLoans();
@@ -25,11 +29,31 @@ const Loans = () => {
   const handleReturn = async (loanId) => {
     try {
       await axios.post(`/api/loans/return/${loanId}`);
-      setSnackbar('Book returned!');
+      // Find the loan and book title for the dialog
+      const loan = loans.find(l => l.id === loanId);
+      setRatingLoan(loan);
+      setRatingValue(3);
+      setRatingDialogOpen(true);
+      setSnackbar('Book returned! Please rate your experience.');
       fetchLoans();
     } catch {
       setSnackbar('Failed to return book');
     }
+  };
+
+  const handleRatingSubmit = async () => {
+    if (!ratingLoan || !ratingLoan.book) return;
+    try {
+      await axios.post(`/api/ratings/${ratingLoan.book.id}?rating=${ratingValue}`);
+      setSnackbar('Thank you for rating!');
+      if (typeof refetchAverageRatings === 'function') {
+        refetchAverageRatings();
+      }
+    } catch {
+      setSnackbar('Failed to submit rating');
+    }
+    setRatingDialogOpen(false);
+    setRatingLoan(null);
   };
 
   return (
@@ -54,6 +78,23 @@ const Loans = () => {
         </Grid>
       )}
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')} message={snackbar} />
+      <Dialog open={ratingDialogOpen} onClose={() => setRatingDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, p: 2, minWidth: 350 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 22, pb: 0 }}>Rate "{ratingLoan?.book?.title}"</DialogTitle>
+        <DialogContent sx={{ pt: 2, pb: 0 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>How would you rate this book?</Typography>
+          <MuiRating
+            name="book-rating"
+            value={ratingValue}
+            onChange={(_, newValue) => setRatingValue(newValue)}
+            size="large"
+            max={5}
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2, pt: 1 }}>
+          <Button onClick={() => setRatingDialogOpen(false)} variant="outlined" size="large" sx={{ minWidth: 110, mr: 2, borderRadius: 2 }}>Cancel</Button>
+          <Button onClick={handleRatingSubmit} variant="contained" size="large" sx={{ minWidth: 110, borderRadius: 2 }}>Submit</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
