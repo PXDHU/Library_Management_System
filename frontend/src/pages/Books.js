@@ -33,6 +33,8 @@ import BarcodeIcon from '@mui/icons-material/QrCode2';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import Pagination from '@mui/material/Pagination';
 import { useTheme } from '@mui/material/styles';
+import { useSnackbar } from '../context/SnackbarContext';
+import BorrowDialog from '../components/BorrowDialog';
 
 export let refetchAverageRatings = () => {};
 
@@ -41,7 +43,7 @@ const BookCatalog = () => {
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { showSnackbar } = useSnackbar();
   const { user } = useContext(AuthContext);
   const [favorites, setFavorites] = useState([]);
   const theme = useTheme();
@@ -66,7 +68,7 @@ const BookCatalog = () => {
         setLoading(false);
       } catch (error) {
         console.error(error);
-        setSnackbar({ open: true, message: 'Failed to fetch books.', severity: 'error' });
+        showSnackbar('Failed to fetch books.', 'error');
         setLoading(false);
       }
     };
@@ -96,10 +98,6 @@ const BookCatalog = () => {
     setFilteredBooks(filtered);
   }, [books]);
 
-  const handleSnackbarClose = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
   const handleFavoriteToggle = (bookId) => {
     const isFav = favorites.includes(bookId);
     const updatedFavs = isFav ? favorites.filter(id => id !== bookId) : [...favorites, bookId];
@@ -124,25 +122,25 @@ const BookCatalog = () => {
   };
   const handleConfirmBorrow = async () => {
     if (!user) {
-      setSnackbar({ open: true, message: 'Please log in to borrow books.', severity: 'warning' });
+      showSnackbar('Please log in to borrow books.', 'warning');
       closeBorrowDialog();
       return;
     }
     if (!borrowAvailableCopies || borrowAvailableCopies < 1) {
-      setSnackbar({ open: true, message: 'No copies available to borrow.', severity: 'warning' });
+      showSnackbar('No copies available to borrow.', 'warning');
       closeBorrowDialog();
       return;
     }
     if (!borrowDays || isNaN(borrowDays) || borrowDays <= 0) {
-      setSnackbar({ open: true, message: 'Please enter a valid number of days.', severity: 'warning' });
+      showSnackbar('Please enter a valid number of days.', 'warning');
       return;
     }
     try {
       await axios.post(`/api/loans/borrow/${borrowBookId}?durationDays=${borrowDays}`);
-      setSnackbar({ open: true, message: 'Book borrowed!', severity: 'success' });
+      showSnackbar('Book borrowed!', 'success');
       closeBorrowDialog();
     } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to borrow book.', severity: 'error' });
+      showSnackbar('Failed to borrow book.', 'error');
       closeBorrowDialog();
     }
   };
@@ -305,43 +303,14 @@ const BookCatalog = () => {
         </Fade>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
-      <Dialog open={borrowDialogOpen} onClose={closeBorrowDialog} PaperProps={{ sx: { borderRadius: 3, p: 2, minWidth: 350 } }}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: 24, pb: 0 }}>Borrow Book</DialogTitle>
-        <Typography variant="subtitle1" color="text.secondary" sx={{ px: 3, pt: 1, pb: 0.5 }}>
-          Please enter the number of days you wish to borrow this book for.
-        </Typography>
-        <DialogContent sx={{ pt: 1, pb: 0 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Number of days"
-            type="number"
-            fullWidth
-            size="large"
-            value={borrowDays}
-            onChange={e => setBorrowDays(e.target.value)}
-            inputProps={{ min: 1, style: { fontSize: 18, padding: '14px 10px' } }}
-            helperText="Enter a value between 1 and 30 days."
-            FormHelperTextProps={{ sx: { fontSize: 14 } }}
-            sx={{ mt: 2, mb: 1 }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2, pt: 1 }}>
-          <Button onClick={closeBorrowDialog} variant="outlined" size="large" sx={{ minWidth: 110, mr: 2, borderRadius: 2 }}>Cancel</Button>
-          <Button onClick={handleConfirmBorrow} variant="contained" size="large" sx={{ minWidth: 110, borderRadius: 2 }}>Borrow</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Borrow Dialog */}
+      <BorrowDialog
+        open={borrowDialogOpen}
+        onClose={closeBorrowDialog}
+        borrowDays={borrowDays}
+        setBorrowDays={setBorrowDays}
+        handleConfirmBorrow={handleConfirmBorrow}
+      />
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import {
   Box,
@@ -31,12 +31,16 @@ import {
   Search as SearchIcon,
   Edit as EditIcon
 } from '@mui/icons-material';
+import { useSnackbar } from '../context/SnackbarContext';
 
 const Admin = () => {
   const theme = useTheme();
   const [users, setUsers] = useState([]);
   const [books, setBooks] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [filteredBooks, setFilteredBooks] = useState([]);
+  const [filteredLoans, setFilteredLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userPage, setUserPage] = useState(0);
   const [bookPage, setBookPage] = useState(0);
@@ -50,6 +54,7 @@ const Admin = () => {
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
   const [addError, setAddError] = useState("");
   const [editError, setEditError] = useState("");
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     fetchAll();
@@ -66,8 +71,12 @@ const Admin = () => {
       setUsers(usersRes.data);
       setBooks(booksRes.data);
       setLoans(loansRes.data);
+      setFilteredUsers(usersRes.data); // Initialize filtered state
+      setFilteredBooks(booksRes.data); // Initialize filtered state
+      setFilteredLoans(loansRes.data); // Initialize filtered state
     } catch (error) {
       console.error('Error fetching data:', error);
+      showSnackbar('Failed to fetch admin data', 'error');
     }
     setLoading(false);
   };
@@ -77,8 +86,9 @@ const Admin = () => {
     try {
       await axios.delete(`/api/books/${id}`);
       fetchAll();
+      showSnackbar('Book deleted successfully', 'success');
     } catch (err) {
-      alert('Failed to delete book. User has not returned the book yet.');
+      showSnackbar('Failed to delete book. User has not returned the book yet.', 'error');
     }
   };
 
@@ -127,8 +137,9 @@ const Admin = () => {
       await axios.put(`/api/admin/books/${editBook.id}`, updatedBook);
       fetchAll();
       handleEditModalClose();
+      showSnackbar('Book updated successfully', 'success');
     } catch (err) {
-      alert('Failed to update book');
+      showSnackbar('Failed to update book', 'error');
     }
   };
 
@@ -159,9 +170,61 @@ const Admin = () => {
       await axios.post('/api/admin/books', book);
       fetchAll();
       setAddBookModalOpen(false);
+      showSnackbar('Book added successfully', 'success');
     } catch (err) {
-      alert('Failed to add book');
+      showSnackbar('Failed to add book', 'error');
     }
+  };
+
+  // Filter Functions
+  const filterUsers = (query) => {
+    const filtered = users.filter(user =>
+      user.username?.toLowerCase().includes(query.toLowerCase()) ||
+      user.email?.toLowerCase().includes(query.toLowerCase()) ||
+      user.role?.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredUsers(filtered);
+  };
+
+  const filterBooks = (query) => {
+    const filtered = books.filter(book =>
+      book.title?.toLowerCase().includes(query.toLowerCase()) ||
+      book.author?.toLowerCase().includes(query.toLowerCase()) ||
+      book.publisher?.toLowerCase().includes(query.toLowerCase()) ||
+      book.isbn?.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredBooks(filtered);
+  };
+
+  const filterLoans = (query) => {
+    const filtered = loans.filter(loan =>
+      loan.book?.title?.toLowerCase().includes(query.toLowerCase()) ||
+      loan.user?.username?.toLowerCase().includes(query.toLowerCase()) ||
+      loan.id?.toString().includes(query)
+    );
+    setFilteredLoans(filtered);
+  };
+
+  // Search Handlers
+  const handleUserSearchChange = (e) => {
+    const query = e.target.value;
+    setUserSearch(query);
+    filterUsers(query);
+    setUserPage(0);
+  };
+
+  const handleBookSearchChange = (e) => {
+    const query = e.target.value;
+    setBookSearch(query);
+    filterBooks(query);
+    setBookPage(0);
+  };
+
+  const handleLoanSearchChange = (e) => {
+    const query = e.target.value;
+    setLoanSearch(query);
+    filterLoans(query);
+    setLoanPage(0);
   };
 
   const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
@@ -205,7 +268,7 @@ const Admin = () => {
     </Card>
   );
 
-  const EnhancedTable = ({ title, data, columns, searchValue, onSearchChange, page, onPageChange, icon: Icon, onAddBook }) => (
+  const EnhancedTable = ({ title, data, columns, page, onPageChange, icon: Icon, onAddBook }) => (
     <Paper
       sx={{
         borderRadius: 4,
@@ -236,32 +299,7 @@ const Admin = () => {
                 Add Book
               </Button>
             )}
-            <TextField
-              size="small"
-              placeholder={`Search ${title.toLowerCase()}...`}
-              value={searchValue}
-              onChange={onSearchChange}
-              sx={{
-                background: '#fff',
-                borderRadius: 2,
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#fff',
-                  borderRadius: 2,
-                  '& fieldset': { border: '1px solid #e5e7eb' },
-                  '&:hover fieldset': { border: '1px solid #3a5a80' },
-                  '&.Mui-focused fieldset': { border: '2px solid #3a5a80' }
-                },
-                '& .MuiInputBase-input': { color: 'primary.main' },
-                '& .MuiInputBase-input::placeholder': { color: '#bfc0c0' }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#bfc0c0' }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            {/* Search box removed */}
           </Box>
         </Box>
       </Box>
@@ -297,43 +335,6 @@ const Admin = () => {
       />
     </Paper>
   );
-
-  const filteredUsers = useMemo(() => {
-    return users.filter(user =>
-      user.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.email?.toLowerCase().includes(userSearch.toLowerCase())
-    );
-  }, [users, userSearch]);
-
-  const filteredBooks = useMemo(() => {
-    return books.filter(book =>
-      book.title?.toLowerCase().includes(bookSearch.toLowerCase()) ||
-      book.author?.toLowerCase().includes(bookSearch.toLowerCase())
-    );
-  }, [books, bookSearch]);
-
-  const filteredLoans = useMemo(() => {
-    return loans.filter(loan =>
-      loan.book?.title?.toLowerCase().includes(loanSearch.toLowerCase()) ||
-      loan.user?.username?.toLowerCase().includes(loanSearch.toLowerCase()) ||
-      loan.id?.toString().includes(loanSearch)
-    );
-  }, [loans, loanSearch]);
-
-  const handleUserSearchChange = (e) => {
-    setUserSearch(e.target.value);
-    setUserPage(0);
-  };
-
-  const handleBookSearchChange = (e) => {
-    setBookSearch(e.target.value);
-    setBookPage(0);
-  };
-
-  const handleLoanSearchChange = (e) => {
-    setLoanSearch(e.target.value);
-    setLoanPage(0);
-  };
 
   if (loading) {
     return (
@@ -490,8 +491,6 @@ const Admin = () => {
             title="Users"
             data={filteredUsers}
             columns={userColumns}
-            searchValue={userSearch}
-            onSearchChange={handleUserSearchChange}
             page={userPage}
             onPageChange={setUserPage}
             icon={PersonIcon}
@@ -501,8 +500,6 @@ const Admin = () => {
               title="Books"
               data={filteredBooks}
               columns={bookColumns}
-              searchValue={bookSearch}
-              onSearchChange={handleBookSearchChange}
               page={bookPage}
               onPageChange={setBookPage}
               icon={BookIcon}
@@ -514,8 +511,6 @@ const Admin = () => {
               title="Loans"
               data={filteredLoans}
               columns={loanColumns}
-              searchValue={loanSearch}
-              onSearchChange={handleLoanSearchChange}
               page={loanPage}
               onPageChange={setLoanPage}
               icon={AssignmentIcon}

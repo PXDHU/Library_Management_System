@@ -56,7 +56,6 @@ const NavBar = () => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           {user && (
             <>
-              <Button color="primary" component={Link} to="/dashboard" sx={{ fontWeight: 500, borderRadius: 3, px: 2, background: 'none', color: 'primary.main', '&:hover': { background: '#f7f7fa', color: 'primary.dark' } }}>Dashboard</Button>
               <Button color="primary" component={Link} to="/books" sx={{ fontWeight: 500, borderRadius: 3, px: 2, background: 'none', color: 'primary.main', '&:hover': { background: '#f7f7fa', color: 'primary.dark' } }}>Books</Button>
               <Button color="primary" component={Link} to="/recommendations" sx={{ fontWeight: 500, borderRadius: 3, px: 2, background: 'none', color: 'primary.main', '&:hover': { background: '#f7f7fa', color: 'primary.dark' } }}>Recommendations</Button>
               <Button color="primary" component={Link} to="/loans" sx={{ fontWeight: 500, borderRadius: 3, px: 2, background: 'none', color: 'primary.main', '&:hover': { background: '#f7f7fa', color: 'primary.dark' } }}>Loans</Button>

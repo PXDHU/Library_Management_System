@@ -2,13 +2,14 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Paper } from '@mui/material';
+import { useSnackbar } from '../context/SnackbarContext';
 
 const Login = () => {
   const { login } = useContext(AuthContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +17,7 @@ const Login = () => {
       await login(username, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid credentials');
+      showSnackbar('Invalid credentials', 'error');
     }
   };
 
@@ -36,7 +37,6 @@ const Login = () => {
           <form onSubmit={handleSubmit} style={{ width: '100%' }}>
             <TextField label="Username" fullWidth margin="normal" value={username} onChange={e => setUsername(e.target.value)} required autoFocus sx={{ borderRadius: 2 }} />
             <TextField label="Password" type="password" fullWidth margin="normal" value={password} onChange={e => setPassword(e.target.value)} required sx={{ borderRadius: 2 }} />
-            {error && <Typography color="error" fontSize={14} mt={1}>{error}</Typography>}
             <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3, borderRadius: 2, fontWeight: 600 }}>Login</Button>
           </form>
         </Paper>

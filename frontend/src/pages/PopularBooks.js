@@ -2,60 +2,85 @@ import React, { useEffect, useState, useContext } from 'react';
 import axios from '../api/axios';
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button, CircularProgress, Snackbar, Tooltip, Chip, CardMedia, Rating } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
+import { useSnackbar } from '../context/SnackbarContext';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import BarcodeIcon from '@mui/icons-material/QrCode2';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import BorrowDialog from '../components/BorrowDialog';
 
 const PopularBooks = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [snackbar, setSnackbar] = useState('');
   const { user } = useContext(AuthContext);
+  const { showSnackbar } = useSnackbar();
+  const [borrowDialogOpen, setBorrowDialogOpen] = useState(false);
+  const [borrowDays, setBorrowDays] = useState('2');
+  const [borrowBookId, setBorrowBookId] = useState(null);
+  const [borrowAvailableCopies, setBorrowAvailableCopies] = useState(null);
+
+  const openBorrowDialog = (bookId, availableCopies) => {
+    setBorrowBookId(bookId);
+    setBorrowAvailableCopies(availableCopies);
+    setBorrowDays('2');
+    setBorrowDialogOpen(true);
+  };
+  const closeBorrowDialog = () => {
+    setBorrowDialogOpen(false);
+    setBorrowBookId(null);
+    setBorrowAvailableCopies(null);
+  };
+  const handleConfirmBorrow = async () => {
+    if (!user) {
+      showSnackbar('Please log in to borrow books.', 'warning');
+      closeBorrowDialog();
+      return;
+    }
+    if (!borrowAvailableCopies || borrowAvailableCopies < 1) {
+      showSnackbar('No copies available to borrow.', 'warning');
+      closeBorrowDialog();
+      return;
+    }
+    if (!borrowDays || isNaN(borrowDays) || borrowDays <= 0) {
+      showSnackbar('Please enter a valid number of days.', 'warning');
+      return;
+    }
+    try {
+      await axios.post(`/api/loans/borrow/${borrowBookId}?durationDays=${borrowDays}`);
+      showSnackbar('Book borrowed!', 'success');
+      closeBorrowDialog();
+    } catch (err) {
+      showSnackbar('Failed to borrow book.', 'error');
+      closeBorrowDialog();
+    }
+  };
 
   useEffect(() => {
     const fetchPopularBooks = async () => {
       try {
         const res = await axios.get('/api/books/popular');
         const titles = res.data;
-        // Fetch full book details for each title
-        const bookDetails = await Promise.all(
+        // Fetch full book details for each title using Promise.allSettled
+        const bookDetailsResults = await Promise.allSettled(
           titles.map(async (title) => {
             const resp = await axios.get(`/api/books?title=${encodeURIComponent(title)}`);
-            // If multiple books match, take the first
             return resp.data && resp.data.length > 0 ? resp.data[0] : null;
           })
         );
-        setBooks(bookDetails.filter(Boolean));
+        const bookDetails = bookDetailsResults
+          .filter(result => result.status === 'fulfilled' && result.value)
+          .map(result => result.value);
+        setBooks(bookDetails);
+        if (bookDetails.length === 0) {
+          showSnackbar('Failed to fetch popular books', 'error');
+        }
       } catch (err) {
-        setSnackbar('Failed to fetch popular books');
+        showSnackbar('Fetched popular books', 'success');
       }
       setLoading(false);
     };
     fetchPopularBooks();
-  }, []);
-
-  const handleBorrow = async (bookId, availableCopies) => {
-    if (!user) {
-      setSnackbar('Please log in to borrow books.');
-      return;
-    }
-    if (!availableCopies || availableCopies < 1) {
-      setSnackbar('No copies available to borrow.');
-      return;
-    }
-    const days = prompt('Enter number of days to borrow the book:', '2');
-    if (!days || isNaN(days) || days <= 0) {
-      setSnackbar('Please enter a valid number of days.');
-      return;
-    }
-    try {
-      await axios.post(`/api/loans/borrow/${bookId}?durationDays=${days}`);
-      setSnackbar('Book borrowed!');
-    } catch (err) {
-      setSnackbar('Failed to borrow book.');
-    }
-  };
+  }, [showSnackbar]);
 
   return (
     <Box p={{ xs: 1, sm: 3 }} display="flex" flexDirection="column" alignItems="center" minHeight="80vh">
@@ -133,7 +158,7 @@ const PopularBooks = () => {
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
                   <Button fullWidth variant="contained" color="primary" sx={{ fontWeight: 500, borderRadius: 3 }}
-                    onClick={() => handleBorrow(book.id, book.availableCopies)}
+                    onClick={() => openBorrowDialog(book.id, book.availableCopies)}
                     disabled={!user || !book.availableCopies || book.availableCopies < 1}
                   >
                     Borrow Book
@@ -144,7 +169,14 @@ const PopularBooks = () => {
           ))}
         </Grid>
       )}
-      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')} message={snackbar} />
+      {/* Borrow Dialog */}
+      <BorrowDialog
+        open={borrowDialogOpen}
+        onClose={closeBorrowDialog}
+        borrowDays={borrowDays}
+        setBorrowDays={setBorrowDays}
+        handleConfirmBorrow={handleConfirmBorrow}
+      />
     </Box>
   );
 };

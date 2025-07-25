@@ -4,13 +4,14 @@ import { AuthContext } from '../context/AuthContext';
 import { Box, Typography, Paper, Snackbar, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Avatar } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
+import { useSnackbar } from '../context/SnackbarContext';
 
 const Profile = () => {
   const { user, token } = useContext(AuthContext);
   const [profile, setProfile] = useState({ id: null, username: '', fullName: '', email: '' });
   const [form, setForm] = useState({ fullName: '', email: '' });
-  const [snackbar, setSnackbar] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (user && token) {
@@ -34,7 +35,7 @@ const Profile = () => {
         email: res.data.email || ''
       });
     } catch (err) {
-      setSnackbar('Failed to fetch profile');
+      showSnackbar('Failed to fetch profile', 'error');
       setProfile({ id: null, username: '', fullName: '', email: '' });
       console.error('Profile fetch error:', err);
     }
@@ -60,11 +61,11 @@ const Profile = () => {
         fullName: form.fullName,
         email: form.email
       });
-      setSnackbar('Profile updated!');
+      showSnackbar('Profile updated!', 'success');
       setProfile({ ...profile, fullName: form.fullName, email: form.email });
       setEditOpen(false);
     } catch {
-      setSnackbar('Failed to update profile');
+      showSnackbar('Failed to update profile', 'error');
     }
   };
 
@@ -111,7 +112,6 @@ const Profile = () => {
           </DialogActions>
         </form>
       </Dialog>
-      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')} message={snackbar} />
     </Box>
   );
 };

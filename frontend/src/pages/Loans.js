@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button, CircularProgress, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, Rating as MuiRating } from '@mui/material';
 import { refetchAverageRatings } from './Books';
+import { useSnackbar } from '../context/SnackbarContext';
 
 const Loans = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [snackbar, setSnackbar] = useState('');
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [ratingLoan, setRatingLoan] = useState(null);
   const [ratingValue, setRatingValue] = useState(3);
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     fetchLoans();
@@ -22,6 +23,7 @@ const Loans = () => {
       setLoans(res.data);
     } catch {
       setLoans([]);
+      showSnackbar('Failed to fetch loans', 'error');
     }
     setLoading(false);
   };
@@ -34,10 +36,10 @@ const Loans = () => {
       setRatingLoan(loan);
       setRatingValue(3);
       setRatingDialogOpen(true);
-      setSnackbar('Book returned! Please rate your experience.');
+      showSnackbar('Book returned! Please rate your experience.', 'success');
       fetchLoans();
     } catch {
-      setSnackbar('Failed to return book');
+      showSnackbar('Failed to return book', 'error');
     }
   };
 
@@ -45,12 +47,12 @@ const Loans = () => {
     if (!ratingLoan || !ratingLoan.book) return;
     try {
       await axios.post(`/api/ratings/${ratingLoan.book.id}?rating=${ratingValue}`);
-      setSnackbar('Thank you for rating!');
+      showSnackbar('Thank you for rating', 'success');
       if (typeof refetchAverageRatings === 'function') {
         refetchAverageRatings();
       }
     } catch {
-      setSnackbar('Failed to submit rating');
+      showSnackbar('Failed to submit rating', 'error');
     }
     setRatingDialogOpen(false);
     setRatingLoan(null);
@@ -77,7 +79,6 @@ const Loans = () => {
           ))}
         </Grid>
       )}
-      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')} message={snackbar} />
       <Dialog open={ratingDialogOpen} onClose={() => setRatingDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, p: 2, minWidth: 350 } }}>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 22, pb: 0 }}>Rate "{ratingLoan?.book?.title}"</DialogTitle>
         <DialogContent sx={{ pt: 2, pb: 0 }}>

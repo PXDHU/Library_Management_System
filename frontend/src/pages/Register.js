@@ -2,12 +2,13 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Paper } from '@mui/material';
+import { useSnackbar } from '../context/SnackbarContext';
 
 const Register = () => {
   const { register } = useContext(AuthContext);
   const [form, setForm] = useState({ username: '', password: '', email: '', fullName: '' });
-  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -17,9 +18,10 @@ const Register = () => {
     e.preventDefault();
     try {
       await register(form);
+      showSnackbar('Registration successful! Please log in.', 'success');
       navigate('/login');
     } catch (err) {
-      setError(err.message || 'Registration failed');
+      showSnackbar(err.message || 'Registration failed', 'error');
     }
   };
 
@@ -39,7 +41,6 @@ const Register = () => {
           <TextField label="Password" name="password" type="password" fullWidth margin="normal" value={form.password} onChange={handleChange} required sx={{ borderRadius: 2 }} />
           <TextField label="Email" name="email" fullWidth margin="normal" value={form.email} onChange={handleChange} required sx={{ borderRadius: 2 }} />
           <TextField label="Full Name" name="fullName" fullWidth margin="normal" value={form.fullName} onChange={handleChange} required sx={{ borderRadius: 2 }} />
-          {error && <Typography color="error" fontSize={14} mt={1}>{error}</Typography>}
           <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3, borderRadius: 2, fontWeight: 600 }}>Register</Button>
         </form>
       </Paper>
